@@ -1,0 +1,80 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  ingress:
+    build: .
+    command: npm run start:ingress
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://redis:6379
+      INGRESS_MODE: file
+      FILE_INGRESS_MODE: replay
+      INGRESS_FILE: /io/input.ndjson
+      EGRESS_FILE: /io/egress.log
+      COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
+    volumes:
+      - ./collegia:/app/collegia:ro
+      - ./io:/io
+
+  pedagogy-fellow:
+    build: .
+    command: npm run start:fellow
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://redis:6379
+      COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
+      DS100_CHANNEL_ID: ${DS100_CHANNEL_ID:-test-channel}
+      FELLOW_NAME: Pedagogy Lead
+      LLM_API_BASE: ${LLM_API_BASE:-http://host.docker.internal:8001/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-local-proxy-placeholder}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1}
+      DELIBERATION_TURN_CAP: ${DELIBERATION_TURN_CAP:-8}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./collegia:/app/collegia:ro
+      - ./personas:/app/personas:ro
+
+  assessment-fellow:
+    build: .
+    command: npm run start:fellow
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://redis:6379
+      COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
+      DS100_CHANNEL_ID: ${DS100_CHANNEL_ID:-test-channel}
+      FELLOW_NAME: Assessment Strategist
+      LLM_API_BASE: ${LLM_API_BASE:-http://host.docker.internal:8001/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-local-proxy-placeholder}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1}
+      DELIBERATION_TURN_CAP: ${DELIBERATION_TURN_CAP:-8}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./collegia:/app/collegia:ro
+      - ./personas:/app/personas:ro
+
+  forge:
+    build: .
+    command: npm run start:forge
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://redis:6379
+      COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
+      DS100_CHANNEL_ID: ${DS100_CHANNEL_ID:-test-channel}
+      FORGE_NAME: record
+      FORGE_WORKSPACE: /workspace
+    volumes:
+      - ./collegia:/app/collegia:ro
+      - ./skills:/app/skills:ro
+      - forge-workspace:/workspace
+
+volumes:
+  forge-workspace:
