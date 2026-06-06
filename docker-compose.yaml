@@ -5,6 +5,9 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    networks:
+      - default
+      - forge-net
 
   ingress:
     build: .
@@ -15,8 +18,9 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
       SLACK_APP_TOKEN: ${SLACK_APP_TOKEN}
+      COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
 
-  syllabus-fellow:
+  pedagogy-fellow:
     build: .
     command: npm run start:fellow
     depends_on:
@@ -32,6 +36,9 @@ services:
       DELIBERATION_TURN_CAP: ${DELIBERATION_TURN_CAP:-8}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ./collegia:/app/collegia:ro
+      - ./personas:/app/personas:ro
 
   assessment-fellow:
     build: .
@@ -49,6 +56,9 @@ services:
       DELIBERATION_TURN_CAP: ${DELIBERATION_TURN_CAP:-8}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ./collegia:/app/collegia:ro
+      - ./personas:/app/personas:ro
 
   forge:
     build: .
@@ -56,14 +66,22 @@ services:
     depends_on:
       - redis
     environment:
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: redis://redis:6379
       COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
       DS100_CHANNEL_ID: ${DS100_CHANNEL_ID}
       FORGE_NAME: record
       FORGE_WORKSPACE: ${FORGE_WORKSPACE:-/workspace}
     volumes:
+      - ./collegia:/app/collegia:ro
+      - ./skills:/app/skills:ro
       - forge-workspace:/workspace
+    networks:
+      - forge-net
 
 volumes:
   redis-data:
   forge-workspace:
+
+networks:
+  forge-net:
+    internal: true

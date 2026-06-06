@@ -5,7 +5,7 @@ Lightweight event-driven multi-agent scaffold for Slack, Redis Streams, and Node
 ## Services
 
 - `ingress`: Slack Socket Mode client. Publishes Slack channel messages to `collegium:stream:[channel_id]` and posts `collegium:outbound` messages back into Slack threads.
-- `syllabus-fellow` / `assessment-fellow`: generic `PersonaWorker` containers configured from a Collegium manifest.
+- `pedagogy-fellow` / `assessment-fellow`: generic `PersonaWorker` containers configured from a Collegium manifest.
 - `forge`: constrained worker that blocks on `forge:commission:[channel_id]`, fulfills typed commissions, and publishes completion messages to `collegium:outbound`.
 - `redis`: message broker.
 
@@ -18,6 +18,8 @@ cp .env.example .env
 Fill in Slack credentials and channel IDs in `.env`. Do not commit `.env`.
 Create operator-local `personas/` and `skills/` files referenced by `collegia/ds100.yaml`;
 those directories are intentionally gitignored.
+The Forge service is attached only to an internal Redis network and has no
+published inbound ports.
 
 ```bash
 npm install
