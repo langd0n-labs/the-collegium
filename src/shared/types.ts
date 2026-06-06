@@ -15,8 +15,10 @@ export interface OutboundMessage {
 export interface CommissionPayload {
   channel_id?: string;
   thread_ts?: string;
+  forge?: string;
+  params?: Record<string, unknown>;
   description?: string;
-  capability?: string;
-  command?: string;
+  requirements?: string;
+  acceptance_criteria?: string[];
   [key: string]: unknown;
 }

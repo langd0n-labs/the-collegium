@@ -6,7 +6,7 @@ Lightweight event-driven multi-agent scaffold for Slack, Redis Streams, and Node
 
 - `ingress`: Slack Socket Mode client. Publishes Slack channel messages to `collegium:stream:[channel_id]` and posts `collegium:outbound` messages back into Slack threads.
 - `syllabus-fellow` / `assessment-fellow`: generic `PersonaWorker` containers configured from a Collegium manifest.
-- `foundry`: stateless worker that blocks on `foundry:commission:[channel_id]`, executes localized workspace commissions, and publishes completion messages to `collegium:outbound`.
+- `forge`: constrained worker that blocks on `forge:commission:[channel_id]`, fulfills typed commissions, and publishes completion messages to `collegium:outbound`.
 - `redis`: message broker.
 
 ## Setup
@@ -30,7 +30,7 @@ docker compose up --build
 Fellows can delegate work by including a marker in their generated response:
 
 ```text
-COMMISSION: {"description":"Create a short artifact","capability":"shell","command":"printf 'hello\n' > hello.txt"}
+COMMISSION: {"forge":"record","requirements":"Create a short artifact","acceptance_criteria":["Write one Markdown file"],"params":{"title":"Short Artifact","filename":"short-artifact.md","body":"hello"}}
 ```
 
-The Fellow strips the structured payload from Slack output and pushes it to `foundry:commission:[channel_id]`.
+The Fellow strips the structured payload from Slack output and pushes it to `forge:commission:[channel_id]`.

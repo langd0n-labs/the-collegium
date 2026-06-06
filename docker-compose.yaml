@@ -50,9 +50,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  foundry:
+  forge:
     build: .
-    command: npm run start:foundry
+    command: npm run start:forge
     depends_on:
       - redis
     environment:
@@ -60,10 +60,10 @@ services:
       COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
       DS100_CHANNEL_ID: ${DS100_CHANNEL_ID}
       FORGE_NAME: record
-      FOUNDRY_WORKSPACE: ${FOUNDRY_WORKSPACE:-/workspace}
+      FORGE_WORKSPACE: ${FORGE_WORKSPACE:-/workspace}
     volumes:
-      - foundry-workspace:/workspace
+      - forge-workspace:/workspace
 
 volumes:
   redis-data:
-  foundry-workspace:
+  forge-workspace:

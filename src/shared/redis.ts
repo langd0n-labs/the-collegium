@@ -17,7 +17,7 @@ export function streamName(channelId: string): string {
 }
 
 export function commissionQueueName(channelId: string): string {
-  return `foundry:commission:${channelId}`;
+  return `forge:commission:${channelId}`;
 }
 
 export function threadHistoryKey(threadTs: string): string {

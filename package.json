@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start:ingress": "node dist/ingress/index.js",
     "start:fellow": "node dist/fellow/index.js",
-    "start:foundry": "node dist/foundry/index.js",
+    "start:forge": "node dist/forge/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

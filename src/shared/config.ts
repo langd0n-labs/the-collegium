@@ -39,11 +39,11 @@ export function fellowConfig() {
     .parse(process.env);
 }
 
-export function foundryConfig() {
+export function forgeConfig() {
   return baseSchema
     .extend({
       FORGE_NAME: z.string().min(1).default("record"),
-      FOUNDRY_WORKSPACE: z.string().min(1).default("/workspace"),
+      FORGE_WORKSPACE: z.string().min(1).default("/workspace"),
     })
     .parse(process.env);
 }
