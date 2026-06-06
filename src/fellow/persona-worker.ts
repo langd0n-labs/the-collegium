@@ -21,6 +21,7 @@ export class PersonaWorker {
   private readonly llmApiBase: string;
   private readonly llmApiKey: string;
   private readonly llmModel: string;
+  private readonly turnCap: number;
   private lastId = "$";
 
   private constructor(
@@ -33,6 +34,7 @@ export class PersonaWorker {
       llmApiBase: string;
       llmApiKey: string;
       llmModel: string;
+      turnCap: number;
     },
   ) {
     this.channelId = options.channelId;
@@ -42,6 +44,7 @@ export class PersonaWorker {
     this.llmApiBase = options.llmApiBase;
     this.llmApiKey = options.llmApiKey;
     this.llmModel = options.llmModel;
+    this.turnCap = options.turnCap;
     this.stream = streamName(this.channelId);
   }
 
@@ -59,6 +62,7 @@ export class PersonaWorker {
       llmApiBase: config.LLM_API_BASE,
       llmApiKey: config.LLM_API_KEY,
       llmModel: config.LLM_MODEL,
+      turnCap: config.DELIBERATION_TURN_CAP,
     });
   }
 
@@ -93,56 +97,74 @@ export class PersonaWorker {
       return;
     }
 
-    const threadHistory = await this.loadThreadHistory(message.thread_ts);
-    const response = await generateFellowResponse({
-      apiBase: this.llmApiBase,
-      apiKey: this.llmApiKey,
-      model: this.llmModel,
-      identity: this.identity,
-      persona: this.persona,
-      activationKeywords: this.activationKeywords,
-      message,
-      threadHistory,
-    });
-
-    const prefixedResponse = `${this.identity}: ${response}`;
-    const { cleanedText, commissions } = extractCommissions(prefixedResponse);
-
-    for (const commission of commissions) {
-      await this.redis.lpush(
-        commissionQueueName(this.channelId),
-        JSON.stringify({
-          ...commission,
-          channel_id: commission.channel_id || message.channel_id,
-          thread_ts: commission.thread_ts || message.thread_ts,
-          requested_by: this.identity,
-        }),
-      );
+    if (await this.isDepthReached(message)) {
+      return;
     }
 
-    if (cleanedText) {
-      const deliberationId = await this.redis.xadd(
-        this.stream,
-        "*",
-        ...flattenPayload({
-          channel_id: message.channel_id,
-          thread_ts: message.thread_ts,
-          user: this.identity,
-          text: cleanedText,
-        }),
-      );
+    if (!(await this.acquireThreadLock(message.thread_ts))) {
+      return;
+    }
 
-      await this.redis.xadd(
-        OUTBOUND_STREAM,
-        "*",
-        ...flattenPayload({
-          channel_id: message.channel_id,
-          thread_ts: message.thread_ts,
-          text: cleanedText,
-        }),
-      );
+    try {
+      const threadHistory = await this.loadThreadHistory(message.thread_ts);
+      const response = await generateFellowResponse({
+        apiBase: this.llmApiBase,
+        apiKey: this.llmApiKey,
+        model: this.llmModel,
+        identity: this.identity,
+        persona: this.persona,
+        activationKeywords: this.activationKeywords,
+        message,
+        threadHistory,
+      });
 
-      console.log(`${this.identity} published deliberation ${deliberationId}`);
+      const prefixedResponse = `${this.identity}: ${response}`;
+      const { cleanedText, commissions } = extractCommissions(prefixedResponse);
+
+      for (const commission of commissions) {
+        await this.redis.lpush(
+          commissionQueueName(this.channelId),
+          JSON.stringify({
+            ...commission,
+            channel_id: commission.channel_id || message.channel_id,
+            thread_ts: commission.thread_ts || message.thread_ts,
+            requested_by: this.identity,
+          }),
+        );
+      }
+
+      if (cleanedText) {
+        const turnCount = await this.redis.incr(this.turnCountKey(message.thread_ts));
+        if (turnCount > this.turnCap) {
+          await this.postDepthNotice(message);
+          return;
+        }
+
+        const deliberationId = await this.redis.xadd(
+          this.stream,
+          "*",
+          ...flattenPayload({
+            channel_id: message.channel_id,
+            thread_ts: message.thread_ts,
+            user: this.identity,
+            text: cleanedText,
+          }),
+        );
+
+        await this.redis.xadd(
+          OUTBOUND_STREAM,
+          "*",
+          ...flattenPayload({
+            channel_id: message.channel_id,
+            thread_ts: message.thread_ts,
+            text: cleanedText,
+          }),
+        );
+
+        console.log(`${this.identity} published deliberation ${deliberationId}`);
+      }
+    } finally {
+      await this.releaseThreadLock(message.thread_ts);
     }
 
     await this.markAnswered(streamId, message.thread_ts);
@@ -177,5 +199,52 @@ export class PersonaWorker {
 
   private async markAnswered(streamId: string, threadTs: string): Promise<void> {
     await this.redis.sadd(this.answeredKey(threadTs), streamId);
+  }
+
+  private turnCountKey(threadTs: string): string {
+    return `collegium:thread:${threadTs}:turns`;
+  }
+
+  private depthNoticeKey(threadTs: string): string {
+    return `collegium:thread:${threadTs}:depth_notice`;
+  }
+
+  private lockKey(threadTs: string): string {
+    return `collegium:fellow:${this.identity}:thread:${threadTs}:lock`;
+  }
+
+  private async isDepthReached(message: CollegiumMessage): Promise<boolean> {
+    const current = Number((await this.redis.get(this.turnCountKey(message.thread_ts))) || "0");
+    if (current < this.turnCap) {
+      return false;
+    }
+    await this.postDepthNotice(message);
+    return true;
+  }
+
+  private async postDepthNotice(message: CollegiumMessage): Promise<void> {
+    const shouldPost = await this.redis.set(this.depthNoticeKey(message.thread_ts), "1", "NX");
+    if (!shouldPost) {
+      return;
+    }
+
+    await this.redis.xadd(
+      OUTBOUND_STREAM,
+      "*",
+      ...flattenPayload({
+        channel_id: message.channel_id,
+        thread_ts: message.thread_ts,
+        text: `Deliberation depth reached (${this.turnCap} turns). Halting this thread.`,
+      }),
+    );
+  }
+
+  private async acquireThreadLock(threadTs: string): Promise<boolean> {
+    const result = await this.redis.set(this.lockKey(threadTs), "1", "EX", 60, "NX");
+    return result === "OK";
+  }
+
+  private async releaseThreadLock(threadTs: string): Promise<void> {
+    await this.redis.del(this.lockKey(threadTs));
   }
 }

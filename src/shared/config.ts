@@ -34,6 +34,7 @@ export function fellowConfig() {
       LLM_API_BASE: z.string().url().default("http://localhost:8001/v1"),
       LLM_API_KEY: z.string().min(1).default("local-proxy-placeholder"),
       LLM_MODEL: z.string().min(1).default("gpt-4.1"),
+      DELIBERATION_TURN_CAP: z.coerce.number().int().positive().default(8),
     })
     .parse(process.env);
 }

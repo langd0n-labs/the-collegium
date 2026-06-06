@@ -29,6 +29,7 @@ services:
       LLM_API_BASE: ${LLM_API_BASE:-http://host.docker.internal:8001/v1}
       LLM_API_KEY: ${LLM_API_KEY:-local-proxy-placeholder}
       LLM_MODEL: ${LLM_MODEL:-gpt-4.1}
+      DELIBERATION_TURN_CAP: ${DELIBERATION_TURN_CAP:-8}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -45,6 +46,7 @@ services:
       LLM_API_BASE: ${LLM_API_BASE:-http://host.docker.internal:8001/v1}
       LLM_API_KEY: ${LLM_API_KEY:-local-proxy-placeholder}
       LLM_MODEL: ${LLM_MODEL:-gpt-4.1}
+      DELIBERATION_TURN_CAP: ${DELIBERATION_TURN_CAP:-8}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
