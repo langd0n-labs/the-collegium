@@ -3,6 +3,7 @@ import type { GenericMessageEvent } from "@slack/bolt";
 import { ingressConfig } from "../shared/config.js";
 import {
   OUTBOUND_STREAM,
+  appendThreadHistory,
   createRedis,
   flattenPayload,
   hydratePayload,
@@ -26,17 +27,20 @@ app.message(async ({ message }) => {
   }
 
   const threadTs = slackMessage.thread_ts || slackMessage.ts;
+  const collegiumMessage = {
+    channel_id: slackMessage.channel,
+    thread_ts: threadTs,
+    user: slackMessage.user,
+    text: slackMessage.text,
+    ts: slackMessage.ts,
+  };
+
   await redis.xadd(
     streamName(slackMessage.channel),
     "*",
-    ...flattenPayload({
-      channel_id: slackMessage.channel,
-      thread_ts: threadTs,
-      user: slackMessage.user,
-      text: slackMessage.text,
-      ts: slackMessage.ts,
-    }),
+    ...flattenPayload(collegiumMessage),
   );
+  await appendThreadHistory(redis, collegiumMessage);
 });
 
 async function outboundLoop(): Promise<void> {

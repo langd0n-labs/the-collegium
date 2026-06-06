@@ -3,15 +3,19 @@ import { fellowConfig } from "../shared/config.js";
 import { loadFellowFromManifest } from "../shared/manifest.js";
 import {
   OUTBOUND_STREAM,
+  appendThreadHistory,
   commissionQueueName,
   flattenPayload,
   hydratePayload,
   streamName,
+  threadHistoryKey,
 } from "../shared/redis.js";
 import { generateFellowResponse } from "../shared/llm.js";
 import type { CollegiumMessage } from "../shared/types.js";
 import { decideFellowTurn } from "./arbitration.js";
 import { extractCommissions } from "./commission.js";
+
+type StreamReadResult = Array<[string, Array<[string, string[]]>]> | null;
 
 export class PersonaWorker {
   private readonly channelId: string;
@@ -23,7 +27,8 @@ export class PersonaWorker {
   private readonly llmApiKey: string;
   private readonly llmModel: string;
   private readonly turnCap: number;
-  private lastId = "$";
+  private readonly consumerGroup: string;
+  private readonly consumerName: string;
 
   private constructor(
     private readonly redis: Redis,
@@ -47,6 +52,8 @@ export class PersonaWorker {
     this.llmModel = options.llmModel;
     this.turnCap = options.turnCap;
     this.stream = streamName(this.channelId);
+    this.consumerGroup = `collegium:fellows:${this.channelId}`;
+    this.consumerName = this.identity.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   }
 
   static async create(redis: Redis): Promise<PersonaWorker> {
@@ -69,17 +76,19 @@ export class PersonaWorker {
 
   async run(): Promise<void> {
     console.log(`${this.identity} listening on ${this.stream}`);
+    await this.ensureConsumerGroup();
     for (;;) {
-      const result = await this.redis.xread("BLOCK", 5000, "STREAMS", this.stream, this.lastId);
+      const result =
+        (await this.readGroupMessages("0")) ?? (await this.readGroupMessages(">"));
       if (!result) {
         continue;
       }
 
       for (const [, messages] of result) {
         for (const [id, fields] of messages) {
-          this.lastId = id;
           const message = hydratePayload(fields) as unknown as CollegiumMessage;
           await this.handleMessage(id, message);
+          await this.redis.xack(this.stream, this.consumerGroup, id);
         }
       }
     }
@@ -149,6 +158,13 @@ export class PersonaWorker {
             text: cleanedText,
           }),
         );
+        await appendThreadHistory(this.redis, {
+          channel_id: message.channel_id,
+          thread_ts: message.thread_ts,
+          user: this.identity,
+          text: cleanedText,
+          ts: deliberationId || undefined,
+        });
 
         await this.redis.xadd(
           OUTBOUND_STREAM,
@@ -170,17 +186,10 @@ export class PersonaWorker {
   }
 
   private async loadThreadHistory(threadTs: string): Promise<CollegiumMessage[]> {
-    const entries = (await this.redis.xrevrange(
-      this.stream,
-      "+",
-      "-",
-      "COUNT",
-      50,
-    )) as Array<[string, string[]]>;
+    const entries = await this.redis.lrange(threadHistoryKey(threadTs), 0, -1);
     return entries
-      .map(([, fields]) => hydratePayload(fields) as unknown as CollegiumMessage)
-      .filter((message) => message.thread_ts === threadTs)
-      .reverse();
+      .map((entry) => JSON.parse(entry) as CollegiumMessage)
+      .slice(-50);
   }
 
   private answeredKey(threadTs: string): string {
@@ -240,5 +249,32 @@ export class PersonaWorker {
 
   private async releaseThreadLock(threadTs: string): Promise<void> {
     await this.redis.del(this.lockKey(threadTs));
+  }
+
+  private async ensureConsumerGroup(): Promise<void> {
+    try {
+      await this.redis.xgroup("CREATE", this.stream, this.consumerGroup, "0", "MKSTREAM");
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("BUSYGROUP")) {
+        throw error;
+      }
+    }
+  }
+
+  private async readGroupMessages(id: "0" | ">"): Promise<StreamReadResult> {
+    return (this.redis as unknown as {
+      xreadgroup: (...args: Array<string | number>) => Promise<StreamReadResult>;
+    }).xreadgroup(
+      "GROUP",
+      this.consumerGroup,
+      this.consumerName,
+      "BLOCK",
+      id === ">" ? 5000 : 1,
+      "COUNT",
+      10,
+      "STREAMS",
+      this.stream,
+      id,
+    );
   }
 }

@@ -1,5 +1,6 @@
 import { Redis } from "ioredis";
 import { baseConfig } from "./config.js";
+import type { CollegiumMessage } from "./types.js";
 
 export type StreamPayload = Record<string, string>;
 
@@ -19,6 +20,10 @@ export function commissionQueueName(channelId: string): string {
   return `foundry:commission:${channelId}`;
 }
 
+export function threadHistoryKey(threadTs: string): string {
+  return `collegium:thread:${threadTs}:history`;
+}
+
 export const OUTBOUND_STREAM = "collegium:outbound";
 
 export function flattenPayload(payload: StreamPayload): string[] {
@@ -35,4 +40,14 @@ export function hydratePayload(fields: string[]): StreamPayload {
     }
   }
   return payload;
+}
+
+export async function appendThreadHistory(
+  redis: Redis,
+  message: CollegiumMessage,
+  limit = 100,
+): Promise<void> {
+  const key = threadHistoryKey(message.thread_ts);
+  await redis.rpush(key, JSON.stringify(message));
+  await redis.ltrim(key, -limit, -1);
 }
