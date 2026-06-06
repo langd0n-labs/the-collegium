@@ -21,8 +21,13 @@ export function baseConfig() {
 export function ingressConfig() {
   return baseSchema
     .extend({
-      SLACK_BOT_TOKEN: z.string().min(1),
-      SLACK_APP_TOKEN: z.string().min(1),
+      INGRESS_MODE: z.enum(["slack", "file"]).default("slack"),
+      SLACK_BOT_TOKEN: z.string().default(""),
+      SLACK_APP_TOKEN: z.string().default(""),
+      INGRESS_FILE: z.string().optional(),
+      EGRESS_FILE: z.string().optional(),
+      FILE_INGRESS_MODE: z.enum(["replay", "watch"]).default("watch"),
+      REPLAY_SETTLE_MS: z.coerce.number().int().nonnegative().default(5000),
     })
     .parse(process.env);
 }
