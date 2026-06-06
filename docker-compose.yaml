@@ -1,0 +1,65 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  ingress:
+    build: .
+    command: npm run start:ingress
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN}
+
+  syllabus-fellow:
+    build: .
+    command: npm run start:fellow
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      ENV_CHANNEL_ID: ${DS100_CHANNEL_ID}
+      ENV_ACTIVATION_KEYWORDS: ${SYLLABUS_ACTIVATION_KEYWORDS}
+      FELLOW_IDENTITY: ${SYLLABUS_FELLOW_IDENTITY:-Syllabus Fellow}
+      LLM_API_BASE: ${LLM_API_BASE:-http://host.docker.internal:8001/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-local-proxy-placeholder}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  assessment-fellow:
+    build: .
+    command: npm run start:fellow
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      ENV_CHANNEL_ID: ${DS100_CHANNEL_ID}
+      ENV_ACTIVATION_KEYWORDS: ${ASSESSMENT_ACTIVATION_KEYWORDS}
+      FELLOW_IDENTITY: ${ASSESSMENT_FELLOW_IDENTITY:-Assessment Fellow}
+      LLM_API_BASE: ${LLM_API_BASE:-http://host.docker.internal:8001/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-local-proxy-placeholder}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  foundry:
+    build: .
+    command: npm run start:foundry
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      ENV_CHANNEL_ID: ${FOUNDRY_CHANNEL_ID}
+      FOUNDRY_WORKSPACE: ${FOUNDRY_WORKSPACE:-/workspace}
+    volumes:
+      - foundry-workspace:/workspace
+
+volumes:
+  redis-data:
+  foundry-workspace:

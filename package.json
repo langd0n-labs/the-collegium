@@ -1,0 +1,25 @@
+{
+  "name": "the-collegium",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start:ingress": "node dist/ingress/index.js",
+    "start:fellow": "node dist/fellow/index.js",
+    "start:foundry": "node dist/foundry/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@slack/bolt": "^3.22.0",
+    "@slack/web-api": "^7.10.0",
+    "dotenv": "^16.4.7",
+    "ioredis": "^5.5.0",
+    "openai": "^4.77.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
