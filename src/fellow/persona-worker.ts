@@ -74,13 +74,21 @@ export class PersonaWorker {
         for (const [id, fields] of messages) {
           this.lastId = id;
           const message = hydratePayload(fields) as unknown as CollegiumMessage;
-          await this.handleMessage(message);
+          await this.handleMessage(id, message);
         }
       }
     }
   }
 
-  private async handleMessage(message: CollegiumMessage): Promise<void> {
+  private async handleMessage(streamId: string, message: CollegiumMessage): Promise<void> {
+    if (message.user === this.identity) {
+      return;
+    }
+
+    if (await this.hasAnswered(streamId, message.thread_ts)) {
+      return;
+    }
+
     if (!message.text || !this.shouldActivate(message.text)) {
       return;
     }
@@ -113,6 +121,17 @@ export class PersonaWorker {
     }
 
     if (cleanedText) {
+      const deliberationId = await this.redis.xadd(
+        this.stream,
+        "*",
+        ...flattenPayload({
+          channel_id: message.channel_id,
+          thread_ts: message.thread_ts,
+          user: this.identity,
+          text: cleanedText,
+        }),
+      );
+
       await this.redis.xadd(
         OUTBOUND_STREAM,
         "*",
@@ -122,7 +141,11 @@ export class PersonaWorker {
           text: cleanedText,
         }),
       );
+
+      console.log(`${this.identity} published deliberation ${deliberationId}`);
     }
+
+    await this.markAnswered(streamId, message.thread_ts);
   }
 
   private shouldActivate(text: string): boolean {
@@ -142,5 +165,17 @@ export class PersonaWorker {
       .map(([, fields]) => hydratePayload(fields) as unknown as CollegiumMessage)
       .filter((message) => message.thread_ts === threadTs)
       .reverse();
+  }
+
+  private answeredKey(threadTs: string): string {
+    return `collegium:fellow:${this.identity}:answered:${threadTs}`;
+  }
+
+  private async hasAnswered(streamId: string, threadTs: string): Promise<boolean> {
+    return (await this.redis.sismember(this.answeredKey(threadTs), streamId)) === 1;
+  }
+
+  private async markAnswered(streamId: string, threadTs: string): Promise<void> {
+    await this.redis.sadd(this.answeredKey(threadTs), streamId);
   }
 }
