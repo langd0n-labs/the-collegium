@@ -4,6 +4,7 @@ import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { foundryConfig } from "../shared/config.js";
+import { loadManifest } from "../shared/manifest.js";
 import {
   OUTBOUND_STREAM,
   commissionQueueName,
@@ -15,7 +16,8 @@ import type { CommissionPayload } from "../shared/types.js";
 const execFileAsync = promisify(execFile);
 const redis = createRedis();
 const config = foundryConfig();
-const queue = commissionQueueName(config.ENV_CHANNEL_ID);
+const manifest = await loadManifest(config.COLLEGIUM_MANIFEST);
+const queue = commissionQueueName(manifest.channel_id);
 
 async function runShellCommand(command: string, workspace: string): Promise<string> {
   const { stdout, stderr } = await execFileAsync("sh", ["-lc", command], {
@@ -65,7 +67,7 @@ async function describeCommission(commission: CommissionPayload): Promise<string
 
 async function handleCommission(raw: string): Promise<void> {
   const commission = JSON.parse(raw) as CommissionPayload;
-  const channelId = typeof commission.channel_id === "string" ? commission.channel_id : config.ENV_CHANNEL_ID;
+  const channelId = typeof commission.channel_id === "string" ? commission.channel_id : manifest.channel_id;
   const threadTs = typeof commission.thread_ts === "string" ? commission.thread_ts : "";
 
   if (!threadTs) {

@@ -1,5 +1,6 @@
 import type { Redis } from "ioredis";
-import { fellowConfig, parseCsv } from "../shared/config.js";
+import { fellowConfig } from "../shared/config.js";
+import { loadFellowFromManifest } from "../shared/manifest.js";
 import {
   OUTBOUND_STREAM,
   commissionQueueName,
@@ -15,23 +16,50 @@ export class PersonaWorker {
   private readonly channelId: string;
   private readonly activationKeywords: string[];
   private readonly identity: string;
+  private readonly persona: string;
   private readonly stream: string;
   private readonly llmApiBase: string;
   private readonly llmApiKey: string;
   private readonly llmModel: string;
   private lastId = "$";
 
-  constructor(private readonly redis: Redis) {
-    const config = fellowConfig();
-    this.channelId = config.ENV_CHANNEL_ID;
-    this.activationKeywords = parseCsv(config.ENV_ACTIVATION_KEYWORDS).map((keyword) =>
-      keyword.toLowerCase(),
-    );
-    this.identity = config.FELLOW_IDENTITY;
-    this.llmApiBase = config.LLM_API_BASE;
-    this.llmApiKey = config.LLM_API_KEY;
-    this.llmModel = config.LLM_MODEL;
+  private constructor(
+    private readonly redis: Redis,
+    options: {
+      channelId: string;
+      activationKeywords: string[];
+      identity: string;
+      persona: string;
+      llmApiBase: string;
+      llmApiKey: string;
+      llmModel: string;
+    },
+  ) {
+    this.channelId = options.channelId;
+    this.activationKeywords = options.activationKeywords.map((keyword) => keyword.toLowerCase());
+    this.identity = options.identity;
+    this.persona = options.persona;
+    this.llmApiBase = options.llmApiBase;
+    this.llmApiKey = options.llmApiKey;
+    this.llmModel = options.llmModel;
     this.stream = streamName(this.channelId);
+  }
+
+  static async create(redis: Redis): Promise<PersonaWorker> {
+    const config = fellowConfig();
+    const { manifest, fellow } = await loadFellowFromManifest(
+      config.COLLEGIUM_MANIFEST,
+      config.FELLOW_NAME,
+    );
+    return new PersonaWorker(redis, {
+      channelId: manifest.channel_id,
+      activationKeywords: fellow.activation_keywords,
+      identity: fellow.name,
+      persona: fellow.persona,
+      llmApiBase: config.LLM_API_BASE,
+      llmApiKey: config.LLM_API_KEY,
+      llmModel: config.LLM_MODEL,
+    });
   }
 
   async run(): Promise<void> {
@@ -63,6 +91,7 @@ export class PersonaWorker {
       apiKey: this.llmApiKey,
       model: this.llmModel,
       identity: this.identity,
+      persona: this.persona,
       activationKeywords: this.activationKeywords,
       message,
       threadHistory,

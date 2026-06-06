@@ -3,6 +3,7 @@ import { z } from "zod";
 
 const baseSchema = z.object({
   REDIS_URL: z.string().url().default("redis://localhost:6379"),
+  COLLEGIUM_MANIFEST: z.string().min(1).default("collegia/ds100.yaml"),
 });
 
 export function requireEnv(name: string): string {
@@ -29,9 +30,7 @@ export function ingressConfig() {
 export function fellowConfig() {
   return baseSchema
     .extend({
-      ENV_CHANNEL_ID: z.string().min(1),
-      ENV_ACTIVATION_KEYWORDS: z.string().min(1),
-      FELLOW_IDENTITY: z.string().min(1).default("Fellow"),
+      FELLOW_NAME: z.string().min(1),
       LLM_API_BASE: z.string().url().default("http://localhost:8001/v1"),
       LLM_API_KEY: z.string().min(1).default("local-proxy-placeholder"),
       LLM_MODEL: z.string().min(1).default("gpt-4.1"),
@@ -42,15 +41,8 @@ export function fellowConfig() {
 export function foundryConfig() {
   return baseSchema
     .extend({
-      ENV_CHANNEL_ID: z.string().min(1),
+      FORGE_NAME: z.string().min(1).default("record"),
       FOUNDRY_WORKSPACE: z.string().min(1).default("/workspace"),
     })
     .parse(process.env);
-}
-
-export function parseCsv(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }

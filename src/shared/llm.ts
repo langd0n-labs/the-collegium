@@ -6,6 +6,7 @@ interface GenerateResponseOptions {
   apiKey: string;
   model: string;
   identity: string;
+  persona: string;
   activationKeywords: string[];
   message: CollegiumMessage;
   threadHistory: CollegiumMessage[];
@@ -28,6 +29,7 @@ export async function generateFellowResponse(options: GenerateResponseOptions): 
         role: "system",
         content: [
           `You are ${options.identity}, a specialized Fellow in The Collegium.`,
+          options.persona,
           "Respond concisely and helpfully in the current Slack thread.",
           "If execution or artifact creation is needed, include a structured marker exactly as COMMISSION: {json_payload}.",
           `Activation keywords: ${options.activationKeywords.join(", ")}`,

@@ -23,9 +23,9 @@ services:
       - redis
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      ENV_CHANNEL_ID: ${DS100_CHANNEL_ID}
-      ENV_ACTIVATION_KEYWORDS: ${SYLLABUS_ACTIVATION_KEYWORDS}
-      FELLOW_IDENTITY: ${SYLLABUS_FELLOW_IDENTITY:-Syllabus Fellow}
+      COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
+      DS100_CHANNEL_ID: ${DS100_CHANNEL_ID}
+      FELLOW_NAME: Pedagogy Lead
       LLM_API_BASE: ${LLM_API_BASE:-http://host.docker.internal:8001/v1}
       LLM_API_KEY: ${LLM_API_KEY:-local-proxy-placeholder}
       LLM_MODEL: ${LLM_MODEL:-gpt-4.1}
@@ -39,9 +39,9 @@ services:
       - redis
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      ENV_CHANNEL_ID: ${DS100_CHANNEL_ID}
-      ENV_ACTIVATION_KEYWORDS: ${ASSESSMENT_ACTIVATION_KEYWORDS}
-      FELLOW_IDENTITY: ${ASSESSMENT_FELLOW_IDENTITY:-Assessment Fellow}
+      COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
+      DS100_CHANNEL_ID: ${DS100_CHANNEL_ID}
+      FELLOW_NAME: Assessment Strategist
       LLM_API_BASE: ${LLM_API_BASE:-http://host.docker.internal:8001/v1}
       LLM_API_KEY: ${LLM_API_KEY:-local-proxy-placeholder}
       LLM_MODEL: ${LLM_MODEL:-gpt-4.1}
@@ -55,7 +55,9 @@ services:
       - redis
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      ENV_CHANNEL_ID: ${FOUNDRY_CHANNEL_ID}
+      COLLEGIUM_MANIFEST: ${COLLEGIUM_MANIFEST:-collegia/ds100.yaml}
+      DS100_CHANNEL_ID: ${DS100_CHANNEL_ID}
+      FORGE_NAME: record
       FOUNDRY_WORKSPACE: ${FOUNDRY_WORKSPACE:-/workspace}
     volumes:
       - foundry-workspace:/workspace
