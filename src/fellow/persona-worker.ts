@@ -77,14 +77,23 @@ export class PersonaWorker {
   async run(): Promise<void> {
     console.log(`${this.identity} listening on ${this.stream}`);
     await this.ensureConsumerGroup();
+    // Replay our pending list first (messages delivered but not yet ACKed — e.g.
+    // after a restart), then switch to new messages permanently. Reading id "0"
+    // returns the consumer's PEL; when it is empty Redis returns the stream with
+    // an *empty message array* (NOT null), so we must detect "empty" explicitly
+    // and advance to ">" — a null check alone never advances and starves new reads.
+    let readId: "0" | ">" = "0";
     for (;;) {
-      const result =
-        (await this.readGroupMessages("0")) ?? (await this.readGroupMessages(">"));
-      if (!result) {
+      const result = await this.readGroupMessages(readId);
+
+      if (this.isEmptyResult(result)) {
+        if (readId === "0") {
+          readId = ">";
+        }
         continue;
       }
 
-      for (const [, messages] of result) {
+      for (const [, messages] of result!) {
         for (const [id, fields] of messages) {
           const message = hydratePayload(fields) as unknown as CollegiumMessage;
           await this.handleMessage(id, message);
@@ -92,6 +101,13 @@ export class PersonaWorker {
         }
       }
     }
+  }
+
+  private isEmptyResult(result: StreamReadResult): boolean {
+    if (!result) {
+      return true;
+    }
+    return result.every(([, messages]) => messages.length === 0);
   }
 
   private async handleMessage(streamId: string, message: CollegiumMessage): Promise<void> {
@@ -115,7 +131,7 @@ export class PersonaWorker {
 
     try {
       const threadHistory = await this.loadThreadHistory(message.thread_ts);
-      const response = await generateFellowResponse({
+      const { text: response, usage } = await generateFellowResponse({
         apiBase: this.llmApiBase,
         apiKey: this.llmApiKey,
         model: this.llmModel,
@@ -125,6 +141,15 @@ export class PersonaWorker {
         message,
         threadHistory,
       });
+
+      // Per-activation cost signal (ADR-0003): measure before pruning. This is the
+      // cost-growth seam — a metrics sink can later consume these instead of stdout.
+      if (usage) {
+        console.log(
+          `${this.identity} activation tokens (thread ${message.thread_ts}): ` +
+            `prompt=${usage.prompt_tokens} completion=${usage.completion_tokens} total=${usage.total_tokens}`,
+        );
+      }
 
       const prefixedResponse = `${this.identity}: ${response}`;
       const { cleanedText, commissions } = extractCommissions(prefixedResponse);

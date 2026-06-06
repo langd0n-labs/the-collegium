@@ -12,7 +12,18 @@ interface GenerateResponseOptions {
   threadHistory: CollegiumMessage[];
 }
 
-export async function generateFellowResponse(options: GenerateResponseOptions): Promise<string> {
+export interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+export interface FellowResponse {
+  text: string;
+  usage?: TokenUsage;
+}
+
+export async function generateFellowResponse(options: GenerateResponseOptions): Promise<FellowResponse> {
   const client = new OpenAI({
     baseURL: options.apiBase,
     apiKey: options.apiKey,
@@ -48,5 +59,14 @@ export async function generateFellowResponse(options: GenerateResponseOptions): 
     ],
   });
 
-  return completion.choices[0]?.message?.content?.trim() || "I do not have a response.";
+  const text = completion.choices[0]?.message?.content?.trim() || "I do not have a response.";
+  const usage = completion.usage
+    ? {
+        prompt_tokens: completion.usage.prompt_tokens,
+        completion_tokens: completion.usage.completion_tokens,
+        total_tokens: completion.usage.total_tokens,
+      }
+    : undefined;
+
+  return { text, usage };
 }
