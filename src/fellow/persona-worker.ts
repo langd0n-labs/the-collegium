@@ -10,6 +10,7 @@ import {
 } from "../shared/redis.js";
 import { generateFellowResponse } from "../shared/llm.js";
 import type { CollegiumMessage } from "../shared/types.js";
+import { decideFellowTurn } from "./arbitration.js";
 import { extractCommissions } from "./commission.js";
 
 export class PersonaWorker {
@@ -85,15 +86,13 @@ export class PersonaWorker {
   }
 
   private async handleMessage(streamId: string, message: CollegiumMessage): Promise<void> {
-    if (message.user === this.identity) {
-      return;
-    }
-
-    if (await this.hasAnswered(streamId, message.thread_ts)) {
-      return;
-    }
-
-    if (!message.text || !this.shouldActivate(message.text)) {
+    const decision = decideFellowTurn({
+      message,
+      fellowName: this.identity,
+      activationKeywords: this.activationKeywords,
+      alreadyAnswered: await this.hasAnswered(streamId, message.thread_ts),
+    });
+    if (!decision.speak) {
       return;
     }
 
@@ -168,11 +167,6 @@ export class PersonaWorker {
     }
 
     await this.markAnswered(streamId, message.thread_ts);
-  }
-
-  private shouldActivate(text: string): boolean {
-    const normalized = text.toLowerCase();
-    return this.activationKeywords.some((keyword) => normalized.includes(keyword));
   }
 
   private async loadThreadHistory(threadTs: string): Promise<CollegiumMessage[]> {
