@@ -1,5 +1,11 @@
 # The Collegium — Operating Guide
 
+Read the shared agent conventions in
+`~/loc-areas/meta/ai-control-plane/meta-claude.md` before proceeding — it is
+the repo-canonical, machine-independent source for cross-project rules
+(worktree discipline, GitHub identity, secrets handling, etc.). The rules
+below extend or override it where they conflict.
+
 ## What this project is
 
 The Collegium is a multi-tenant, event-driven AI system that organizes expert
