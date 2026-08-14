@@ -6,3 +6,6 @@ dist/
 workspace/
 personas/
 skills/
+dist-test/
+io/*.ndjson
+io/*.log
