@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { flattenPayload, hydratePayload } from "../../src/shared/redis.js";
+import { fellowConsumerGroupName, flattenPayload, hydratePayload } from "../../src/shared/redis.js";
 
 describe("flattenPayload / hydratePayload", () => {
   it("round-trips a simple payload", () => {
@@ -41,5 +41,21 @@ describe("flattenPayload / hydratePayload", () => {
 
   it("empty payload round-trips to empty object", () => {
     assert.deepEqual(hydratePayload(flattenPayload({})), {});
+  });
+});
+
+describe("fellowConsumerGroupName", () => {
+  it("gives each Fellow a distinct group for the same channel", () => {
+    assert.notEqual(
+      fellowConsumerGroupName("C001", "Pedagogy Lead"),
+      fellowConsumerGroupName("C001", "Assessment Strategist"),
+    );
+  });
+
+  it("keeps channel identity in the group name", () => {
+    assert.equal(
+      fellowConsumerGroupName("C001", "Pedagogy Lead"),
+      "collegium:fellow:C001:Pedagogy%20Lead",
+    );
   });
 });

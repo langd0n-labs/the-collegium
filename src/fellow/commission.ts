@@ -5,6 +5,22 @@ export interface CommissionExtraction {
   commissions: CommissionPayload[];
 }
 
+export interface FellowOutput extends CommissionExtraction {
+  displayText: string;
+}
+
+/**
+ * Extract executable markers before applying the Fellow's display identity.
+ * This keeps a commission-only response from becoming a visible "Name:" turn.
+ */
+export function prepareFellowOutput(identity: string, response: string): FellowOutput {
+  const extraction = extractCommissions(response);
+  return {
+    ...extraction,
+    displayText: extraction.cleanedText ? `${identity}: ${extraction.cleanedText}` : "",
+  };
+}
+
 export function extractCommissions(text: string): CommissionExtraction {
   const commissions: CommissionPayload[] = [];
   let cleanedText = "";

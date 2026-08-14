@@ -27,6 +27,7 @@ import {
   appendThreadHistory,
   createRedis,
   flattenPayload,
+  fellowConsumerGroupName,
   hydratePayload,
   streamName,
 } from "../../src/shared/redis.js";
@@ -279,6 +280,15 @@ describe("four-step deliberation loop (file mode + real Redis)", () => {
 
     // Give workers a moment to set up consumer groups
     await new Promise<void>((resolve) => setTimeout(resolve, 200));
+
+    const groups = await (adminRedis as unknown as {
+      xinfo: (subcommand: string, key: string) => Promise<Array<string[]>>;
+    }).xinfo("GROUPS", streamName(channelId));
+    const groupNames = groups.map((fields) => fields[fields.indexOf("name") + 1]).sort();
+    assert.deepEqual(groupNames, [
+      fellowConsumerGroupName(channelId, "Assessment Strategist"),
+      fellowConsumerGroupName(channelId, "Pedagogy Lead"),
+    ].sort(), "each Fellow must subscribe through its own consumer group");
 
     // Start file ingress — replays the seed message into Redis
     const ingressRedis = makeRedis();

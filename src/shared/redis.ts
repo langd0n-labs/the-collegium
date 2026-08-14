@@ -16,6 +16,15 @@ export function streamName(channelId: string): string {
   return `collegium:stream:${channelId}`;
 }
 
+/**
+ * A Fellow needs its own consumer group to receive every stream entry. Redis
+ * distributes entries among consumers within one group, rather than fanning
+ * them out to every consumer.
+ */
+export function fellowConsumerGroupName(channelId: string, fellowIdentity: string): string {
+  return `collegium:fellow:${channelId}:${encodeURIComponent(fellowIdentity)}`;
+}
+
 export function commissionQueueName(channelId: string): string {
   return `forge:commission:${channelId}`;
 }

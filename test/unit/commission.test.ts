@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { extractCommissions } from "../../src/fellow/commission.js";
+import { extractCommissions, prepareFellowOutput } from "../../src/fellow/commission.js";
 
 describe("extractCommissions", () => {
   it("returns unchanged text when no marker present", () => {
@@ -78,5 +78,23 @@ describe("extractCommissions", () => {
     const { cleanedText } = extractCommissions(input);
     assert.ok(!cleanedText.endsWith(" "));
     assert.ok(!cleanedText.endsWith("\n"));
+  });
+
+  it("does not create an identity-only display message for a commission-only response", () => {
+    const output = prepareFellowOutput(
+      "Pedagogy Lead",
+      'COMMISSION: {"forge":"record","params":{"title":"Test"}}',
+    );
+    assert.equal(output.cleanedText, "");
+    assert.equal(output.displayText, "");
+    assert.equal(output.commissions.length, 1);
+  });
+
+  it("prefixes ordinary text only after extracting commissions", () => {
+    const output = prepareFellowOutput(
+      "Pedagogy Lead",
+      'A short explanation. COMMISSION: {"forge":"record"}',
+    );
+    assert.equal(output.displayText, "Pedagogy Lead: A short explanation.");
   });
 });

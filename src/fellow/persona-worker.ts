@@ -5,6 +5,7 @@ import {
   OUTBOUND_STREAM,
   appendThreadHistory,
   commissionQueueName,
+  fellowConsumerGroupName,
   flattenPayload,
   hydratePayload,
   streamName,
@@ -13,7 +14,7 @@ import {
 import { generateFellowResponse } from "../shared/llm.js";
 import type { CollegiumMessage } from "../shared/types.js";
 import { decideFellowTurn } from "./arbitration.js";
-import { extractCommissions } from "./commission.js";
+import { prepareFellowOutput } from "./commission.js";
 
 type StreamReadResult = Array<[string, Array<[string, string[]]>]> | null;
 
@@ -52,7 +53,7 @@ export class PersonaWorker {
     this.llmModel = options.llmModel;
     this.turnCap = options.turnCap;
     this.stream = streamName(this.channelId);
-    this.consumerGroup = `collegium:fellows:${this.channelId}`;
+    this.consumerGroup = fellowConsumerGroupName(this.channelId, this.identity);
     this.consumerName = this.identity.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   }
 
@@ -151,8 +152,7 @@ export class PersonaWorker {
         );
       }
 
-      const prefixedResponse = `${this.identity}: ${response}`;
-      const { cleanedText, commissions } = extractCommissions(prefixedResponse);
+      const { displayText, commissions } = prepareFellowOutput(this.identity, response);
 
       for (const commission of commissions) {
         await this.redis.lpush(
@@ -166,7 +166,7 @@ export class PersonaWorker {
         );
       }
 
-      if (cleanedText) {
+      if (displayText) {
         const turnCount = await this.redis.incr(this.turnCountKey(message.thread_ts));
         if (turnCount > this.turnCap) {
           await this.postDepthNotice(message);
@@ -180,14 +180,14 @@ export class PersonaWorker {
             channel_id: message.channel_id,
             thread_ts: message.thread_ts,
             user: this.identity,
-            text: cleanedText,
+            text: displayText,
           }),
         );
         await appendThreadHistory(this.redis, {
           channel_id: message.channel_id,
           thread_ts: message.thread_ts,
           user: this.identity,
-          text: cleanedText,
+          text: displayText,
           ts: deliberationId || undefined,
         });
 
@@ -197,7 +197,7 @@ export class PersonaWorker {
           ...flattenPayload({
             channel_id: message.channel_id,
             thread_ts: message.thread_ts,
-            text: cleanedText,
+            text: displayText,
           }),
         );
 
