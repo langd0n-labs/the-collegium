@@ -4,7 +4,7 @@
 
 The Collegium is an event-driven platform for coordinating communities of expertise and artifact-producing automation.
 
-Rather than treating AI as a single assistant or a collection of autonomous agents, The Collegium organizes expertise into topic-specific communities called Collegia. Each Collegium contains specialized Fellows who observe discussions, contribute expertise, and commission work from the Foundry.
+Rather than treating AI as a single assistant or a collection of autonomous agents, The Collegium organizes expertise into topic-specific communities called Collegia. Each Collegium contains specialized Fellows who observe discussions and contribute expertise. A designated synthesizer presents a completed recommendation for ratification; once ratified, it becomes a Commission that the Foundry can fulfill.
 
 ## Core Concepts
 
@@ -55,7 +55,7 @@ Examples:
 
 ### Commission
 
-A request issued by a Fellow to create an artifact.
+A ratified, durable work contract declaring an outcome, requirements, and acceptance criteria. Fellows deliberate toward a Commission recommendation; near-term, a human ratifies it into a Commission.
 
 ### Artifact
 
@@ -97,4 +97,3 @@ Avoid:
 * Digital coworker
 * God
 * Dwarf
-
