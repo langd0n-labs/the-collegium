@@ -1,0 +1,12 @@
+channel_id: "${DS100_CHANNEL_ID}"
+fellows:
+  - name: "Pedagogy Lead"
+    persona_file: "personas/pedagogy-lead.md"
+    activation_keywords: ["lecture", "sequence", "concept", "scaffold"]
+  - name: "Assessment Strategist"
+    persona_file: "personas/assessment.md"
+    activation_keywords: ["assessment", "exam", "grading", "rubric"]
+forges:
+  - name: "record"
+    skill_files:
+      - "skills/record.md"
